@@ -30,7 +30,7 @@ struct ToolCallFunctionParameters {
 }
 
 pub fn available_tools() -> Vec<AvailableTool> {
-    vec![define_read()]
+    vec![define_read(), define_write()]
 }
 
 fn define_read() -> AvailableTool {
@@ -48,6 +48,31 @@ fn define_read() -> AvailableTool {
                 kind: "object".to_string(),
                 properties: parameters,
                 required: vec!["file_path".to_string()],
+            }),
+            strict: None,
+        },
+    }
+}
+
+fn define_write() -> AvailableTool {
+    let mut parameters = HashMap::new();
+    parameters.insert(
+        "file_path".to_string(),
+        json!({ "type": "string", "description": "The path to the file to read" }),
+    );
+    parameters.insert(
+        "content".to_string(),
+        json!({"type": "string", "description": "The content to write to the file"}),
+    );
+    AvailableTool {
+        kind: "function".to_string(),
+        function: ToolCallFunction {
+            name: "Write".to_string(),
+            description: Some("Write content to a file".to_string()),
+            parameters: Some(ToolCallFunctionParameters {
+                kind: "object".to_string(),
+                properties: parameters,
+                required: vec!["file_path".to_string(), "content".to_string()],
             }),
             strict: None,
         },

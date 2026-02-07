@@ -158,6 +158,13 @@ fn handle_function(fun: &Value) -> String {
 
             fs::read_to_string(&args.file_path).unwrap()
         }
+        Some("Write") => {
+            let arguments = fun["arguments"].as_str().unwrap();
+            let args: WriteArgs = serde_json::from_str(arguments).unwrap();
+
+            fs::write(&args.file_path, &args.content).unwrap();
+            "".to_string()
+        }
         _ => todo!(),
     }
 }
@@ -165,6 +172,12 @@ fn handle_function(fun: &Value) -> String {
 #[derive(Debug, Deserialize)]
 struct ReadArgs {
     file_path: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct WriteArgs {
+    file_path: String,
+    content: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
