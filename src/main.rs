@@ -1,7 +1,8 @@
 use async_openai::{Client, config::OpenAIConfig};
 use clap::Parser;
+use serde::Deserialize;
 use serde_json::{Value, json};
-use std::{env, process};
+use std::{env, fs, process};
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -64,9 +65,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
     eprintln!("Logs from your program will appear here!");
 
-    if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
-        println!("{}", content);
-    }
+    handle_response(response);
+    // if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
+    //     println!("{}", content);
+    // }
 
     Ok(())
+}
+
+fn handle_response(response: Value) {
+    dbg!(&response);
+    if let Some(tool_calls) = response["choices"][0]["message"]["tool_calls"].as_array() {
+        for tool_call in tool_calls {
+            dbg!(&tool_call);
+            match tool_call["type"].as_str() {
+                Some("function") => handle_function(&tool_call["function"]),
+                _ => todo!(),
+            }
+        }
+    }
+    if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
+        if !content.is_empty() {
+            println!("{}", content);
+        }
+    }
+}
+
+fn handle_function(fun: &Value) {
+    dbg!(&fun);
+
+    match fun["name"].as_str() {
+        Some("Read") => {
+            let arguments = fun["arguments"].as_str().unwrap();
+            let args: ReadArgs = serde_json::from_str(arguments).unwrap();
+            let contents = fs::read_to_string(&args.file_path).unwrap();
+            println!("{}", contents);
+        }
+        _ => {}
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct ReadArgs {
+    file_path: String,
 }
