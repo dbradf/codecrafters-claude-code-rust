@@ -30,7 +30,7 @@ struct ToolCallFunctionParameters {
 }
 
 pub fn available_tools() -> Vec<AvailableTool> {
-    vec![define_read(), define_write()]
+    vec![define_read(), define_write(), define_bash()]
 }
 
 fn define_read() -> AvailableTool {
@@ -73,6 +73,27 @@ fn define_write() -> AvailableTool {
                 kind: "object".to_string(),
                 properties: parameters,
                 required: vec!["file_path".to_string(), "content".to_string()],
+            }),
+            strict: None,
+        },
+    }
+}
+
+fn define_bash() -> AvailableTool {
+    let mut parameters = HashMap::new();
+    parameters.insert(
+        "command".to_string(),
+        json!({ "type": "string", "description": "The command to execute" }),
+    );
+    AvailableTool {
+        kind: "function".to_string(),
+        function: ToolCallFunction {
+            name: "Bash".to_string(),
+            description: Some("Execute a shell command".to_string()),
+            parameters: Some(ToolCallFunctionParameters {
+                kind: "object".to_string(),
+                properties: parameters,
+                required: vec!["command".to_string()],
             }),
             strict: None,
         },

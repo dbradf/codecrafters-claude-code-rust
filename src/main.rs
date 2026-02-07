@@ -2,7 +2,10 @@ use async_openai::{Client, config::OpenAIConfig};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::{env, fs, process};
+use std::{
+    env, fs,
+    process::{self, Command},
+};
 
 use crate::{
     chat_message::{ChatMessage, UserContent},
@@ -165,6 +168,25 @@ fn handle_function(fun: &Value) -> String {
             fs::write(&args.file_path, &args.content).unwrap();
             "".to_string()
         }
+        Some("Bash") => {
+            let arguments = fun["arguments"].as_str().unwrap();
+            let args: BashArgs = serde_json::from_str(arguments).unwrap();
+
+            let command: Vec<&str> = args.command.split_ascii_whitespace().collect();
+
+            let result = Command::new(command[0]).args(&command[1..]).output();
+
+            match result {
+                Ok(output) => {
+                    if output.status.success() {
+                        String::from_utf8_lossy(&output.stdout).to_string()
+                    } else {
+                        String::from_utf8_lossy(&output.stderr).to_string()
+                    }
+                }
+                Err(err) => err.to_string(),
+            }
+        }
         _ => todo!(),
     }
 }
@@ -178,6 +200,10 @@ struct ReadArgs {
 struct WriteArgs {
     file_path: String,
     content: String,
+}
+#[derive(Debug, Deserialize)]
+struct BashArgs {
+    command: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
