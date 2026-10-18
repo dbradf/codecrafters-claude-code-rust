@@ -1,7 +1,7 @@
 use async_openai::{Client, config::OpenAIConfig};
 use clap::Parser;
 use env_logger::Env;
-use log::debug;
+use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
@@ -60,14 +60,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tools = available_tools();
     let skills = Skill::load_skills()?;
     let skills_message = ChatMessage::System {
-        content: chat_message::SystemContent::String(format_system_skills_message(skills)),
+        content: chat_message::SystemContent::String(format_system_skills_message(&skills)),
         name: None,
     };
 
-    let message = ChatMessage::User {
-        content: UserContent::String(args.prompt.clone()),
-        name: None,
-    };
+    let message = init_user_message(&args.prompt, &skills);
 
     let mut request = ChatRequest {
         messages: vec![skills_message, message],
@@ -101,9 +98,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+fn init_user_message(prompt: &str, skills: &[Skill]) -> ChatMessage {
+    if prompt.starts_with("/") {
+        let skill_query = &prompt[1..];
+        for s in skills {
+            if s.name == skill_query {
+                return ChatMessage::User {
+                    content: UserContent::String(s.content.clone()),
+                    name: None,
+                };
+            }
+        }
+    }
+    let message = ChatMessage::User {
+        content: UserContent::String(prompt.to_string()),
+        name: None,
+    };
+
+    message
+}
+
 fn handle_response(response: Value) -> Option<ChatMessage> {
     let mut result = None;
-    if let Some(tool_calls) = response["choices"][0]["message"]["tool_calls"].as_array() {
+    let message = &response["choices"][0]["message"];
+    debug!("Response message: {:?}", message);
+    if let Some(tool_calls) = message["tool_calls"].as_array()
+        && !tool_calls.is_empty()
+    {
         for tool_call in tool_calls {
             match tool_call["type"].as_str() {
                 Some("function") => {
@@ -118,10 +139,12 @@ fn handle_response(response: Value) -> Option<ChatMessage> {
                 _ => todo!(),
             }
         }
-    } else if let Some(content) = response["choices"][0]["message"]["content"].as_str()
+    } else if let Some(content) = message["content"].as_str()
         && !content.is_empty()
     {
         println!("{}", content);
+    } else {
+        error!("{:?}", response);
     }
 
     result

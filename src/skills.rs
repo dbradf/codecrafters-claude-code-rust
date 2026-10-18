@@ -14,7 +14,7 @@ pub struct Skill {
     pub content: String,
 }
 
-pub fn format_system_skills_message(skills: Vec<Skill>) -> String {
+pub fn format_system_skills_message(skills: &[Skill]) -> String {
     let skill_messages: Vec<String> = skills.iter().map(|s| s.format_desc_message()).collect();
     format!(
         "You have access to the following skills:\n\n{}\n",
