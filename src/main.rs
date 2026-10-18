@@ -1,7 +1,9 @@
 use async_openai::{Client, config::OpenAIConfig};
 use clap::Parser;
+use env_logger::Env;
+use log::debug;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::{
     env, fs,
     process::{self, Command},
@@ -25,11 +27,21 @@ struct Args {
 
     #[arg(short = 'm', long, default_value = "anthropic/claude-haiku-4.5")]
     model: String,
+
+    #[arg(long)]
+    verbose: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
+
+    env_logger::Builder::from_env(Env::default().default_filter_or(if args.verbose {
+        "debug"
+    } else {
+        "info"
+    }))
+    .init();
 
     let base_url = env::var("OPENROUTER_BASE_URL")
         .unwrap_or_else(|_| "https://openrouter.ai/api/v1".to_string());
@@ -46,24 +58,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::with_config(config);
 
     let tools = available_tools();
-    // let tools = vec![ChatTool {
-    //     tool_type: "function".to_string(),
-    //     function: ChatFunction {
-    //         name: "Read".to_string(),
-    //         description: "read and return the contents of a file".to_string(),
-    //         parameters: ChatFunctionParams {
-    //             param_type: "object".to_string(),
-    //             properties: json!({"file_path": {"type": "string", "description": "The path to the file to read"}}),
-    //             required: vec!["file_path".to_string()],
-    //         },
-    //     },
-    // }];
-
-    // let message = vec![ChatMessage {
-    //     role: "user".to_string(),
-    //     content: args.prompt,
-    // }];
-    //
     let skills = Skill::load_skills()?;
     let skills_message = ChatMessage::System {
         content: chat_message::SystemContent::String(format_system_skills_message(skills)),
@@ -83,47 +77,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     loop {
         let request_str = serde_json::to_string_pretty(&request)?;
-        eprintln!("Request: {}", &request_str);
+        debug!("Request: {}", &request_str);
 
-        let response: Value = client
-            .chat()
-            .create_byot(&request)
-            // .create_byot(json!({
-            //     "messages": [
-            //         {
-            //             "role": "user",
-            //             "content": args.prompt
-            //         }
-            //     ],
-            //     "model": "anthropic/claude-haiku-4.5",
-            //     "tools": [
-            //         {
-            //             "type": "function",
-            //             "function": {
-            //                 "name": "Read",
-            //                 "description": "read and return the contents of a file",
-            //                 "parameters": {
-            //                     "type": "object",
-            //                     "properties": {
-            //                         "file_path": {
-            //                             "type": "string",
-            //                             "description": "The path to the file to read"
-            //                         }
-            //                     },
-            //                     "required": ["file_path"]
-            //                 }
-            //             }
-            //         }
-            //     ]
-            // }))
-            .await?;
+        let response: Value = client.chat().create_byot(&request).await?;
 
-        eprintln!("Response: {}", &response);
+        debug!("Response: {}", &response);
 
         if let message_str = &response["choices"][0]["message"] {
-            dbg!(&message_str);
+            debug!("message: {}", &message_str);
             let message: ChatMessage = serde_json::from_value(message_str.clone())?;
-            eprintln!("Adding response: {}", message_str);
+            debug!("Adding response: {}", message_str);
             request.messages.push(message);
         }
 

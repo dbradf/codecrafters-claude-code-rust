@@ -13,6 +13,8 @@ serde_json = "1.0.149"                                                # JSON ser
 serde = { version = "1.0.228", features = ["derive"] }
 markdown-frontmatter = "0.5.1"
 anyhow = "1.0.104"
+log = "0.4.34"
+env_logger = "0.11.11"
 
 [dev-dependencies]
 rstest = "0.26.1"
