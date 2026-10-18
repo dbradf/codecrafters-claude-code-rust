@@ -20,6 +20,9 @@ mod chat_tools;
 struct Args {
     #[arg(short = 'p', long)]
     prompt: String,
+
+    #[arg(short = 'm', long, default_value="anthropic/claude-haiku-4.5")]
+    model: String,
 }
 
 #[tokio::main]
@@ -66,7 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut request = ChatRequest {
         messages: vec![message],
-        model: "anthropic/claude-haiku-4.5".to_string(),
+        model: args.model.to_string(),
         tools,
     };
 

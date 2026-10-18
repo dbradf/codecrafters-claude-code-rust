@@ -19,7 +19,8 @@ pub enum ChatMessage {
         name: Option<String>,
     },
     Assistant {
-        content: AssistantContent,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        content: Option<AssistantContent>,
         #[serde(skip_serializing_if = "Option::is_none")]
         name: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
