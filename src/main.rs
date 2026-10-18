@@ -10,10 +10,12 @@ use std::{
 use crate::{
     chat_message::{ChatMessage, UserContent},
     chat_tools::{AvailableTool, available_tools},
+    skills::{Skill, format_system_skills_message},
 };
 
 mod chat_message;
 mod chat_tools;
+mod skills;
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -21,7 +23,7 @@ struct Args {
     #[arg(short = 'p', long)]
     prompt: String,
 
-    #[arg(short = 'm', long, default_value="anthropic/claude-haiku-4.5")]
+    #[arg(short = 'm', long, default_value = "anthropic/claude-haiku-4.5")]
     model: String,
 }
 
@@ -61,6 +63,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     role: "user".to_string(),
     //     content: args.prompt,
     // }];
+    //
+    let skills = Skill::load_skills()?;
+    let skills_message = ChatMessage::System {
+        content: chat_message::SystemContent::String(format_system_skills_message(skills)),
+        name: None,
+    };
 
     let message = ChatMessage::User {
         content: UserContent::String(args.prompt.clone()),
@@ -68,7 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let mut request = ChatRequest {
-        messages: vec![message],
+        messages: vec![skills_message, message],
         model: args.model.to_string(),
         tools,
     };

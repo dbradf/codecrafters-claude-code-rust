@@ -217,7 +217,7 @@ struct UserContentText {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-enum SystemContent {
+pub enum SystemContent {
     String(String),
     SystemMessageContent1 {
         #[serde(rename = "type")]
