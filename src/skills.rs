@@ -15,6 +15,7 @@ pub struct Skill {
     pub name: String,
     pub description: String,
     pub content: String,
+    pub path: String,
 }
 
 pub fn format_system_skills_message(skills: &[Skill]) -> String {
@@ -61,6 +62,7 @@ impl Skill {
             name: frontmatter.name,
             description: frontmatter.description,
             content: body.to_string(),
+            path: dir.to_str().unwrap().to_string(),
         })
     }
 
@@ -69,7 +71,7 @@ impl Skill {
     }
 
     pub fn load_content(&self, arguments: &[&str]) -> String {
-        let mut contents = String::new();
+        let mut contents = format!("Skill: {} (located at {})", self.name, self.path);
         let mut state = ContentState::Default;
         for ch in self.content.chars() {
             match &state {
@@ -137,6 +139,7 @@ mod tests {
             name: "hello".into(),
             description: "description".into(),
             content: "Deploy to $0 in region $1. Full request was: $ARGUMENTS".into(),
+            path: "".to_string(),
         };
 
         let actual = skill.load_content(&["staging".into(), "eu-west".into()]);
@@ -151,6 +154,7 @@ mod tests {
             name: "hello".into(),
             description: "description".into(),
             content: "Deploy to $0 in region $11. Full request was: $ARGUMENTS".into(),
+            path: "".to_string(),
         };
 
         let actual = skill.load_content(&["staging".into(), "eu-west".into()]);

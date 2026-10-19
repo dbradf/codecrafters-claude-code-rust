@@ -7,6 +7,7 @@ use serde_json::Value;
 use std::{
     collections::HashSet,
     env, fs,
+    path::PathBuf,
     process::{self, Command},
 };
 
@@ -201,8 +202,13 @@ fn handle_function(fun: &Value) -> String {
         Some("Read") => {
             let arguments = fun["arguments"].as_str().unwrap();
             let args: ReadArgs = serde_json::from_str(arguments).unwrap();
+            let path = PathBuf::from(&args.file_path);
 
-            fs::read_to_string(&args.file_path).unwrap()
+            if path.is_dir() {
+                format!("{} is a directory", path.to_str().unwrap())
+            } else {
+                fs::read_to_string(path).unwrap()
+            }
         }
         Some("Write") => {
             let arguments = fun["arguments"].as_str().unwrap();
