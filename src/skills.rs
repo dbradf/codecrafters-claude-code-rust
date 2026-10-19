@@ -10,7 +10,7 @@ use crate::skills::ContentState::InArgument;
 
 const SKILLS_DIR: &str = ".claude/skills";
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Skill {
     pub name: String,
     pub description: String,

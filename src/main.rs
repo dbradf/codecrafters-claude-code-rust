@@ -13,7 +13,7 @@ use std::{
 
 use crate::{
     chat_message::{ChatMessage, UserContent},
-    chat_tools::{AvailableTool, available_tools},
+    chat_tools::{AvailableTool, ToolRegistry},
     skills::{Skill, format_system_skills_message},
 };
 
@@ -58,9 +58,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_api_key(api_key);
 
     let client = Client::with_config(config);
-
-    let tools = available_tools();
     let skills = Skill::load_skills()?;
+
+    let tool_registry = ToolRegistry::init(skills.clone());
+
     let skills_message = ChatMessage::System {
         content: chat_message::SystemContent::String(format_system_skills_message(&skills)),
         name: None,
@@ -74,7 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut request = ChatRequest {
         messages,
         model: args.model.to_string(),
-        tools,
+        tools: tool_registry.available_tools(),
     };
 
     loop {
@@ -92,7 +93,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             request.messages.push(message);
         }
 
-        let result = handle_response(response, &skills);
+        let result = handle_response(response, &tool_registry);
         if let Some(tool_message) = result {
             request.messages.push(tool_message);
         } else {
@@ -152,7 +153,7 @@ fn init_user_message(prompt: &str, skills: &[Skill]) -> Vec<ChatMessage> {
     }
 }
 
-fn handle_response(response: Value, skills: &[Skill]) -> Option<ChatMessage> {
+fn handle_response(response: Value, tool_registry: &ToolRegistry) -> Option<ChatMessage> {
     let mut result = None;
     let message = &response["choices"][0]["message"];
     debug!("Response message: {:?}", message);
@@ -162,7 +163,11 @@ fn handle_response(response: Value, skills: &[Skill]) -> Option<ChatMessage> {
         for tool_call in tool_calls {
             match tool_call["type"].as_str() {
                 Some("function") => {
-                    let content = handle_function(&tool_call["function"], skills);
+                    let function = &tool_call["function"];
+                    let content = tool_registry.execute(
+                        function["name"].as_str().unwrap(),
+                        function["arguments"].as_str().unwrap(),
+                    );
                     let id = tool_call["id"].as_str().unwrap();
 
                     result = Some(ChatMessage::Tool {
@@ -182,87 +187,6 @@ fn handle_response(response: Value, skills: &[Skill]) -> Option<ChatMessage> {
     }
 
     result
-}
-
-fn handle_function(fun: &Value, skills: &[Skill]) -> String {
-    match fun["name"].as_str() {
-        Some("Read") => {
-            let arguments = fun["arguments"].as_str().unwrap();
-            let args: ReadArgs = serde_json::from_str(arguments).unwrap();
-            let path = PathBuf::from(&args.file_path);
-
-            if path.is_dir() {
-                format!("{} is a directory", path.to_str().unwrap())
-            } else {
-                fs::read_to_string(path).unwrap()
-            }
-        }
-        Some("Write") => {
-            let arguments = fun["arguments"].as_str().unwrap();
-            let args: WriteArgs = serde_json::from_str(arguments).unwrap();
-
-            fs::write(&args.file_path, &args.content).unwrap();
-            "".to_string()
-        }
-        Some("Bash") => {
-            let arguments = fun["arguments"].as_str().unwrap();
-            let args: BashArgs = serde_json::from_str(arguments).unwrap();
-
-            let command: Vec<&str> = args.command.split_ascii_whitespace().collect();
-
-            let result = Command::new(command[0]).args(&command[1..]).output();
-
-            match result {
-                Ok(output) => {
-                    if output.status.success() {
-                        String::from_utf8_lossy(&output.stdout).to_string()
-                    } else {
-                        String::from_utf8_lossy(&output.stderr).to_string()
-                    }
-                }
-                Err(err) => err.to_string(),
-            }
-        }
-        Some("Skill") => {
-            debug!("Executing skill: {}", fun);
-            let arguments = fun["arguments"].as_str().unwrap();
-            let args: SkillArgs = serde_json::from_str(arguments).unwrap();
-
-            let argument_str = args.args.unwrap_or_default();
-            let argument_list: Vec<&str> = argument_str.split(" ").collect();
-            let skill_name = args.name;
-            for s in skills {
-                debug!("Searching skills: {} == {}", s.name, skill_name);
-                if s.name.as_str() == skill_name {
-                    return s.load_content(&argument_list);
-                }
-            }
-            "".to_string()
-        }
-        _ => todo!(),
-    }
-}
-
-#[derive(Debug, Deserialize)]
-struct ReadArgs {
-    file_path: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct WriteArgs {
-    file_path: String,
-    content: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct BashArgs {
-    command: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct SkillArgs {
-    name: String,
-    args: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
