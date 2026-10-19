@@ -5,6 +5,7 @@ use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
+    collections::HashSet,
     env, fs,
     process::{self, Command},
 };
@@ -64,10 +65,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         name: None,
     };
 
+    let mut messages = vec![skills_message];
+
     let message = init_user_message(&args.prompt, &skills);
+    messages.extend(message);
 
     let mut request = ChatRequest {
-        messages: vec![skills_message, message],
+        messages,
         model: args.model.to_string(),
         tools,
     };
@@ -98,26 +102,66 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn init_user_message(prompt: &str, skills: &[Skill]) -> ChatMessage {
+#[derive(PartialEq, Debug)]
+enum SkillsState {
+    Skills,
+    Args,
+}
+
+fn init_user_message(prompt: &str, skills: &[Skill]) -> Vec<ChatMessage> {
     if prompt.starts_with("/") {
-        let skill_query = &prompt[1..];
-        let skills_parts: Vec<&str> = skill_query.split(" ").collect();
-        for s in skills {
-            if s.name == skills_parts[0] {
-                let content = s.load_content(&skills_parts[1..]);
-                return ChatMessage::User {
-                    content: UserContent::String(content),
-                    name: None,
-                };
+        let skills_set: HashSet<String> = skills.iter().map(|s| s.name.clone()).collect();
+        let skills_parts: Vec<&str> = prompt.split(" ").collect();
+        let mut skills_to_invoke = vec![];
+        let mut arguments = vec![];
+        let mut state = SkillsState::Skills;
+        for param in skills_parts {
+            debug!("Searching param: {} <{:?}>", param, state);
+            if state == SkillsState::Skills
+                && param.starts_with("/")
+                && skills_set.contains(&param[1..].to_string())
+            {
+                let skill_name = &param[1..];
+                for s in skills {
+                    if s.name == skill_name {
+                        skills_to_invoke.push(s);
+                    }
+                }
+            } else {
+                state = SkillsState::Args;
+                arguments.push(param);
             }
         }
+        debug!("Skills to invoke: {:?}", skills_to_invoke);
+        skills_to_invoke
+            .iter()
+            .map(|s| {
+                let content = s.load_content(&arguments);
+                ChatMessage::User {
+                    content: UserContent::String(content),
+                    name: None,
+                }
+            })
+            .collect()
+    //         let mut messages = vec![];
+    //
+    //         for s in skills {
+    //             if s.name == skills_parts[0] {
+    //                 let content = s.load_content(&skills_parts[1..]);
+    //                 return ChatMessage::User {
+    //                     content: UserContent::String(content),
+    //                     name: None,
+    //                 };
+    //             }
+    //         }
+    //
+    //         messages
+    } else {
+        vec![ChatMessage::User {
+            content: UserContent::String(prompt.to_string()),
+            name: None,
+        }]
     }
-    let message = ChatMessage::User {
-        content: UserContent::String(prompt.to_string()),
-        name: None,
-    };
-
-    message
 }
 
 fn handle_response(response: Value) -> Option<ChatMessage> {
