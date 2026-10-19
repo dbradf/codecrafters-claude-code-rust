@@ -30,7 +30,7 @@ struct ToolCallFunctionParameters {
 }
 
 pub fn available_tools() -> Vec<AvailableTool> {
-    vec![define_read(), define_write(), define_bash()]
+    vec![define_read(), define_write(), define_bash(), define_skill()]
 }
 
 fn define_read() -> AvailableTool {
@@ -94,6 +94,31 @@ fn define_bash() -> AvailableTool {
                 kind: "object".to_string(),
                 properties: parameters,
                 required: vec!["command".to_string()],
+            }),
+            strict: None,
+        },
+    }
+}
+
+fn define_skill() -> AvailableTool {
+    let mut parameters = HashMap::new();
+    parameters.insert(
+        "name".to_string(),
+        json!({ "type": "string", "description": "The name of the still to use" }),
+    );
+    parameters.insert(
+        "args".to_string(),
+        json!({ "type": "string", "description": "Optional arguments for the skill" }),
+    );
+    AvailableTool {
+        kind: "function".to_string(),
+        function: ToolCallFunction {
+            name: "Skill".to_string(),
+            description: Some("Load a skill's instructions into the conversation".to_string()),
+            parameters: Some(ToolCallFunctionParameters {
+                kind: "object".to_string(),
+                properties: parameters,
+                required: vec!["name".to_string()],
             }),
             strict: None,
         },

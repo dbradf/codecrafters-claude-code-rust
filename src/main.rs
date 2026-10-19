@@ -92,7 +92,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             request.messages.push(message);
         }
 
-        let result = handle_response(response);
+        let result = handle_response(response, &skills);
         if let Some(tool_message) = result {
             request.messages.push(tool_message);
         } else {
@@ -144,19 +144,6 @@ fn init_user_message(prompt: &str, skills: &[Skill]) -> Vec<ChatMessage> {
                 }
             })
             .collect()
-    //         let mut messages = vec![];
-    //
-    //         for s in skills {
-    //             if s.name == skills_parts[0] {
-    //                 let content = s.load_content(&skills_parts[1..]);
-    //                 return ChatMessage::User {
-    //                     content: UserContent::String(content),
-    //                     name: None,
-    //                 };
-    //             }
-    //         }
-    //
-    //         messages
     } else {
         vec![ChatMessage::User {
             content: UserContent::String(prompt.to_string()),
@@ -165,7 +152,7 @@ fn init_user_message(prompt: &str, skills: &[Skill]) -> Vec<ChatMessage> {
     }
 }
 
-fn handle_response(response: Value) -> Option<ChatMessage> {
+fn handle_response(response: Value, skills: &[Skill]) -> Option<ChatMessage> {
     let mut result = None;
     let message = &response["choices"][0]["message"];
     debug!("Response message: {:?}", message);
@@ -175,7 +162,7 @@ fn handle_response(response: Value) -> Option<ChatMessage> {
         for tool_call in tool_calls {
             match tool_call["type"].as_str() {
                 Some("function") => {
-                    let content = handle_function(&tool_call["function"]);
+                    let content = handle_function(&tool_call["function"], skills);
                     let id = tool_call["id"].as_str().unwrap();
 
                     result = Some(ChatMessage::Tool {
@@ -197,7 +184,7 @@ fn handle_response(response: Value) -> Option<ChatMessage> {
     result
 }
 
-fn handle_function(fun: &Value) -> String {
+fn handle_function(fun: &Value, skills: &[Skill]) -> String {
     match fun["name"].as_str() {
         Some("Read") => {
             let arguments = fun["arguments"].as_str().unwrap();
@@ -236,6 +223,22 @@ fn handle_function(fun: &Value) -> String {
                 Err(err) => err.to_string(),
             }
         }
+        Some("Skill") => {
+            debug!("Executing skill: {}", fun);
+            let arguments = fun["arguments"].as_str().unwrap();
+            let args: SkillArgs = serde_json::from_str(arguments).unwrap();
+
+            let argument_str = args.args.unwrap_or_default();
+            let argument_list: Vec<&str> = argument_str.split(" ").collect();
+            let skill_name = args.name;
+            for s in skills {
+                debug!("Searching skills: {} == {}", s.name, skill_name);
+                if s.name.as_str() == skill_name {
+                    return s.load_content(&argument_list);
+                }
+            }
+            "".to_string()
+        }
         _ => todo!(),
     }
 }
@@ -250,9 +253,16 @@ struct WriteArgs {
     file_path: String,
     content: String,
 }
+
 #[derive(Debug, Deserialize)]
 struct BashArgs {
     command: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct SkillArgs {
+    name: String,
+    args: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

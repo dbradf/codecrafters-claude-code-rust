@@ -21,7 +21,7 @@ pub struct Skill {
 pub fn format_system_skills_message(skills: &[Skill]) -> String {
     let skill_messages: Vec<String> = skills.iter().map(|s| s.format_desc_message()).collect();
     format!(
-        "You have access to the following skills:\n\n{}\n",
+        "You have access to the following skills:\n\n{}\nIf a skill matches the user's request, call the Skill tool with its name and follow the instructions it returns.",
         skill_messages.join("\n")
     )
 }
