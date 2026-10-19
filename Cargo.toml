@@ -15,6 +15,7 @@ markdown-frontmatter = "0.5.1"
 anyhow = "1.0.104"
 log = "0.4.34"
 env_logger = "0.11.11"
+regex = "1.13.1"
 
 [dev-dependencies]
 rstest = "0.26.1"

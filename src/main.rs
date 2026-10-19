@@ -101,10 +101,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn init_user_message(prompt: &str, skills: &[Skill]) -> ChatMessage {
     if prompt.starts_with("/") {
         let skill_query = &prompt[1..];
+        let skills_parts: Vec<&str> = skill_query.split(" ").collect();
         for s in skills {
-            if s.name == skill_query {
+            if s.name == skills_parts[0] {
+                let content = s.load_content(&skills_parts[1..]);
                 return ChatMessage::User {
-                    content: UserContent::String(s.content.clone()),
+                    content: UserContent::String(content),
                     name: None,
                 };
             }
