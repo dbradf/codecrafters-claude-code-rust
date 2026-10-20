@@ -79,17 +79,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     loop {
-        let request_str = serde_json::to_string_pretty(&request)?;
+        let request_str = serde_json::to_string_pretty(&request.messages)?;
         debug!("Request: {}", &request_str);
 
         let response: Value = client.chat().create_byot(&request).await?;
 
-        debug!("Response: {}", &response);
+        let response_pretty = serde_json::to_string_pretty(&response)?;
+        debug!("Response: {}", &response_pretty);
 
         if let message_str = &response["choices"][0]["message"] {
-            debug!("message: {}", &message_str);
             let message: ChatMessage = serde_json::from_value(message_str.clone())?;
-            debug!("Adding response: {}", message_str);
             request.messages.push(message);
         }
 
