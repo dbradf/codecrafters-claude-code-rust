@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fs, path::PathBuf, process::Command};
 
+use log::debug;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -154,6 +155,13 @@ impl ChatTool for WriteTool {
 
     fn execute(&self, arguments: &str) -> String {
         let args: WriteArgs = serde_json::from_str(arguments).unwrap();
+
+        debug!("Writing file: {}", &args.file_path);
+
+        let path = PathBuf::from(&args.file_path);
+        if !path.exists() {
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+        }
 
         fs::write(&args.file_path, &args.content).unwrap();
         "".to_string()
